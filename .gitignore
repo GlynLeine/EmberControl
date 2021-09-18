@@ -1,3 +1,6 @@
 # QtCreator Qml
 *.pyproject
 *.pyproject.qtds
+
+# Virtual Environment
+venv/*
