@@ -1,42 +1,159 @@
 import asyncio
+from PySide2.QtGui import QColor
+from bleak import BleakScanner, BleakClient
 from sys import platform
 import logging
-from bleak import BleakClient, BleakScanner
+
+DEVICE_NAME = "Ember Ceramic Mug"
 
 UUIDS = {
-    "target_temp": "fc540003-236c-4c94-8fa9-944a3e5353fa",
-    "led_color": "fc540014-236c-4c94-8fa9-944a3e5353fa",
-    "current_temp": "fc540002-236c-4c94-8fa9-944a3e5353fa",
-    "current_bat": "fc540007-236c-4c94-8fa9-944a3e5353fa",
+    "target_temp": "fc540003-236c-4c94-8fa9-944a3e5353fa", 
+    "led_color": "fc540014-236c-4c94-8fa9-944a3e5353fa", 
+    "current_temp": "fc540002-236c-4c94-8fa9-944a3e5353fa", 
+    "current_bat": "fc540007-236c-4c94-8fa9-944a3e5353fa", 
 }
 
 logging.basicConfig(format="%(asctime)s %(message)s ", level=logging.INFO)
 
 
-class Mug:
-    def __init__(self, unit: str, coffeeTemp=5500, teaTemp=5900):
-        self.unit = unit
+class Mug: 
+    def __init__(self, useCelcius: bool = True, coffeeTemp = 5500, teaTemp = 5900):
+        self.useCelcius = useCelcius
         self.coffeeTemp = coffeeTemp
         self.teaTemp = teaTemp
         self.keepConnectionAlive = True
         self.searchForDevice = True
         self.current_temp = None
+        self.connectedClient = BleakClient(None)
+            
+    async def getCurrentLEDColor(self): 
+        """Get the current LED color.
 
-    async def connectToMug(self):
+        The value of the current color is stored as in UUIDS["led_color"] as array.
+
+        Returns:
+            The current color as bytearray.
+        """
+        if  self.connectedClient is not None:
+            c = await self.connectedClient.read_gatt_char(UUIDS["led_color"]) 
+            return c        
+        else:
+            print("not connected")
+            
+    async def getTargetTemp(self):
+        """Get the current target temperature value.
+
+        The value of the target temperature is given as bytes and needs to be converted 
+        to a unsigned integer in little endian form. Afterwards it will be converted 
+        to a float value with two decimal places.
+
+        Returns:
+            the target temperature as float.
+        """
+        if await self.connectedClient.is_connected():
+            currentTarTemp = await self.connectedClient.read_gatt_char(UUIDS["target_temp"])
+            TargetDegree = float(int.from_bytes(currentTarTemp, byteorder = 'little', signed = False)) * 0.01
+            print("Target temp set to {0}".format(TargetDegree))
+            return TargetDegree
+        else:
+            print("not connected")
+            
+    async def getCurrentBattery(self): 
+        """Get the current battery level.
+
+        The value of the current battery level is given after requesting UUIDS["current_bat"]. 
+        It will be converted to a float before returning. 
+
+        Returns:
+            the current battery level as float.
+        """
+        if await self.connectedClient.is_connected():
+            curBat = await self.connectedClient.read_gatt_char(UUIDS["current_bat"])
+            currentBattery = float(curBat[0])
+            print("Current Bat: {0}".format(currentBattery))
+            return currentBattery
+        else:
+            print("not connected")
+
+    async def getCurrentTemp(self):
+        """Get the current temperature value.
+
+        The value of the current temperature is given as bytes and needs to be converted 
+        to a unsigned integer in little endian form. Afterwards it will be converted 
+        to a float value with two decimal places.
+
+        Returns:
+            the current temperature as float.
+        """
         try:
-            print("Searching..", end="")
-            # self.connectionChanged.emit(False)
-            # Search for the mug as long til we find it.
+            if await self.connectedClient.is_connected():
+                currentTemp = await self.connectedClient.read_gatt_char(
+                    UUIDS["current_temp"]
+                )
+                currentDegree = (
+                    float(int.from_bytes(currentTemp, byteorder = "little", signed = False))
+                    * 0.01
+                )
+                # Unit conversion
+                if not self.useCelcius:
+                    CurrentDegree = (currentDegree * 1.8) + 32
+                currentDegree = round(currentDegree, 1)
+                print("Current Temp: {0}".format(currentDegree))
+                return currentDegree
+            else:
+                print("not connected")
+        except Exception as exc:
+            print("Error: {}".format(exc))
+
+    async def setLEDColor(self, color):
+        """Sets the LED Color.
+
+        Args:
+        color (bytearray): the LED color as bytearray
+
+        Returns:
+            no value
+        """
+        if await self.connectedClient.is_connected():
+            await self.connectedClient.write_gatt_char(UUIDS["led_color"], color, False)
+            print("Changed Color to {0}".format(color))
+        else:
+            print("not connected")
+            
+    async def setTargetTemp(self, temp): 
+        """Sets the target temperature.
+
+        Args:
+        temp (float): the target temperature.
+
+        Returns:
+            no value
+        """
+        if await self.connectedClient.is_connected():
+            newtarget = temp.to_bytes(2, 'little')
+            await self.connectedClient.write_gatt_char(UUIDS["target_temp"], newtarget, False)
+        else:
+            print("not connected")
+                        
+    async def connect(self):
+        """Tries to connect to the first Ember Mug it finds.
+
+        Returns:
+            no value
+        """
+        try:
+            print("Searching..", end = '')
+            # Search for the mug
             while self.searchForDevice:
-                print(".", end="")
+                print('.', end = '')
                 scanner = BleakScanner()
-                # scanner.register_detection_callback(detection_callback)
                 await scanner.start()
                 await asyncio.sleep(5.0)
                 await scanner.stop()
                 devices = await scanner.get_discovered_devices()
+
                 for device in devices:
-                    if device.name == "Ember Ceramic Mug":
+                    if device.name == DEVICE_NAME:
                         # We found the ember mug!
                         print(device.address)
                         print(device.name)
@@ -44,136 +161,25 @@ class Mug:
                         # try to connect to the mug
                         async with BleakClient(device) as client:
                             self.connectedClient = client
-                            self.isConnected = await client.is_connected()
-                            print("Connected: {0}".format(self.isConnected))
+                            
+                            x = await client.is_connected()
+                            print("Connected: {0}".format(x))
                             if platform != "darwin":
                                 # Avoid this on mac, since CoreBluetooth doesnt support pairing.
                                 y = await client.pair()
                                 print("Paired: {0}".format(y))
                             # Set connection parameters and use signal to send it to the UI.
                             self.keepConnectionAlive = True
-                            # self.connectionChanged.emit(True)
-                            # await self.fetchLEDColor(self)
-                            # Auto update Temp and Battery
-                            # self.timer = QTimer()
 
-                            # Execute function every 3 seconds
-                            # TO-DO: Must decouple the calling of this function from the connection
-                            # while self.keepConnectionAlive:
-                            # We stay in here to keep the client alive
-                            # once keepConnectionAlive is set to false
-                            # the client will also disconnect automatically
-                            while self.keepConnectionAlive == True:
-                                await asyncio.sleep(1)
-                            # await asyncio.sleep(5)
-                            # print(".")
-                            # await asyncio.gather(
-                            #     self.getCurrentBattery(),
-                            #     self.getCurrentTemp(),
-                            #     self.getTargetTemp(),
-                            # )
-                            # await asyncio.sleep(3)
-                            return
+                            # connected, now keeping the connecting alive.
+                            while self.keepConnectionAlive:
+                                # We stay in here to keep the client alive
+                                # once keepConnectionAlive is set to false
+                                # the client will also disconnect automatically
+                                print(".")
+                                await asyncio.sleep(2)
+                                self.keepConnectionAlive = await self.connectedClient.is_connected()
+
         except Exception as exc:
             # self.connectionChanged.emit(False)
-            print("Error: {}".format(exc))
-
-    # # function to get the current temp from the async loop.
-    # def fetchCurrentTemperature(self):
-    #     if self.connectedClient is not None:
-    #         asyncio.ensure_future(self.getCurrentTemp())
-
-    # # function to get the current charge percentage from the async loop.
-    # def fetchCurrentBattery(self):
-    #     if self.connectedClient is not None:
-    #         asyncio.ensure_future(self.getCurrentBattery())
-
-    # Get the current temp
-    async def getCurrentTemp(self):
-        if await self.connectedClient.is_connected():
-            currentTemp = await self.connectedClient.read_gatt_char(
-                UUIDS["current_temp"]
-            )
-            CurrentDegree = (
-                float(int.from_bytes(currentTemp, byteorder="little", signed=False))
-                * 0.01
-            )
-            # Unit conversion
-            if self.unit == "F":
-                CurrentDegree = (CurrentDegree * 1.8) + 32
-            CurrentDegree = round(CurrentDegree, 1)
-            self.current_temp = CurrentDegree
-            logging.info("Temp: %s", self.current_temp)
-            # await asyncio.sleep(3)
-            # print(CurrentDegree)
-            # Send UI Signal
-            # self.getDegree.emit(float(CurrentDegree))
-        else:
-            # self.connectionChanged.emit(False)
-            print("not connected")
-
-    async def getCurrentBattery(self):
-        if await self.connectedClient.is_connected():
-            currentBat = await self.connectedClient.read_gatt_char(UUIDS["current_bat"])
-            logging.info("Battery: %s", float(currentBat[0]))
-            # await asyncio.sleep(3)
-            # Send UI Signal
-            # self.getBattery.emit(float(currentBat[0]))
-        else:
-            # self.connectionChanged.emit(False)
-            print("not connected")
-
-    async def getTargetTemp(self):
-        if await self.connectedClient.is_connected():
-            currentTemp = await self.connectedClient.read_gatt_char(
-                UUIDS["target_temp"]
-            )
-            TargetDegree = (
-                float(int.from_bytes(currentTemp, byteorder="little", signed=False))
-                * 0.01
-            )
-            if self.unit == "F":
-                TargetDegree = (TargetDegree * 1.8) + 32
-            TargetDegree = round(TargetDegree, 1)
-            logging.info("Temp: %s", TargetDegree)
-        else:
-            # self.connectionChanged.emit(False)
-            print("not connected")
-
-    async def update_values(self):
-        while True:
-            try:
-                await self.getCurrentBattery()
-                await self.getCurrentTemp()
-                await self.getTargetTemp()
-                await asyncio.sleep(3)
-            except:
-                print("Not connected, trying again in 10 seconds")
-                await asyncio.sleep(10)
-
-    async def setToTemp(self, temp: float):
-        while True:
-            try:
-                print("Trying")
-                if await self.connectedClient.is_connected():
-                    if self.unit == "F":
-                        temp = (temp - 32) / 1.8
-                    print(temp)
-                    print("try setting the target temperature")
-                    convert_temp = int(temp * 1000)
-                    print(convert_temp)
-                    newtarget = bytearray(convert_temp.to_bytes(2, "little"))
-                    await self.connectedClient.write_gatt_char(
-                        UUIDS["target_temp"], newtarget, False
-                    )
-                    return
-                    # Send UI Signal
-                    # self.getDegree.emit(float(temp * 0.01))
-
-                else:
-                    # self.connectionChanged.emit(False)
-                    print("not connected")
-            except Exception as err:
-                print("sleep")
-                print(err)
-                await asyncio.sleep(5)
+            print('Error: {}'.format(exc))
