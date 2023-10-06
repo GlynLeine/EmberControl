@@ -9,6 +9,7 @@ from PySide2.QtGui import QColor
 from PySide2.QtQml import QQmlApplicationEngine
 from PySide2.QtCore import QObject, Slot, Signal, QSettings
 from mug.mug import Mug
+import log.logger as log
 
 class MainWindow(QObject):
     def __init__(self):
@@ -21,9 +22,6 @@ class MainWindow(QObject):
         if self.globalSettings.value("teaTemp") is None:
             self.globalSettings.setValue("teaTemp", 5900)
         # Init
-        self.keepConnectionAlive = True
-        self.searchForDevice = True
-        self.connectedClient = None
         self.mug = Mug(True, self.globalSettings.value("coffeeTemp"),self.globalSettings.value("teaTemp"))
 
     # UI Signals
@@ -36,11 +34,11 @@ class MainWindow(QObject):
     # UI SLOTS
     @Slot()
     def close_event(self):
-        print("close")
-        self.searchForDevice = False
-        self.keepConnectionAlive = False
+        self.mug.searchForDevice = False
+        self.mug.keepConnectionAlive = False
         if hasattr(self, 'timer'):
             self.timer.stop()
+        
         asyncio.ensure_future(self.cleanup())
     @Slot(int)
     def set_coffee_temp(self, temp):
@@ -95,9 +93,13 @@ class MainWindow(QObject):
         Returns:
             nothing, it will run unless the routine is killed.
         """
-        while True:        
+        await self.mug.scanningComplete.wait()
+
+        while True:
             if self.mug.connectedClient.is_connected:
+                log.prevLine()
                 currentTemp = await self.mug.getCurrentTemp()
+                log.nextLine()
                 currentBattery, currentlyCharging = await self.mug.getCurrentBattery()
                 ledColor = await self.mug.getCurrentLEDColor()
                 self.currentColor = QColor(ledColor[0], ledColor[1], ledColor[2], ledColor[3])  
@@ -106,19 +108,16 @@ class MainWindow(QObject):
                 self.getDegree.emit(currentTemp)
                 self.getBattery.emit(currentBattery, currentlyCharging)
                 self.setColor.emit(self.currentColor)
-                await asyncio.sleep(5)
             else:
-                await asyncio.sleep(5) 
-                print("Mug disconnected")
-                self.connectionChanged.emit(False)    
+                self.connectionChanged.emit(False)
+            await asyncio.sleep(5)
                   
     async def cleanup(self):
         tasks = [t for t in asyncio.all_tasks() if t is not
                  asyncio.current_task()]
         [task.cancel() for task in tasks]
         await asyncio.gather(*tasks, return_exceptions = True)
-        loop.stop()
-        print("stopped all tasks")
+        loop.stop()        
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
