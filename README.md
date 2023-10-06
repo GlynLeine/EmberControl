@@ -10,6 +10,7 @@ Small python program to communicate with the Ember Mug.
 - [x] Connect to the Ember Mug
 - [x] Show current temperature
 - [x] Show current battery
+- [x] Show current battery charge state
 - [x] Set target temperature tea (59°C)
 - [x] Set target temperature coffee (55°C)
 - [X] Three Temperature Animations
@@ -17,12 +18,12 @@ Small python program to communicate with the Ember Mug.
 
 ## Installation
 
-Tested on Windows 10 with Python 3.7
+Tested on Windows 11 with Python 3.10.11
 Currently we are using the following [dependencies](requirements.txt): 
 
-    qasync==0.13.0
-    bleak==0.10.0
-    PySide2==5.15.2
+    qasync>=0.13.0
+    bleak>=0.10.0
+    PySide2>=5.15.2
     
 Install dependencies:
 
