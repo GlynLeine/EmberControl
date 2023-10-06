@@ -1,6 +1,7 @@
 # QtCreator Qml
 *.pyproject
 *.pyproject.qtds
+__pycache__
 pyproject.toml
 
 # Virtual Environment

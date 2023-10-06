@@ -343,8 +343,12 @@ Window {
             }
         }
 
-        function onGetBattery(battery) {
+        function onGetBattery(battery, charging) {
             text2.text = String(battery) + "%"
+            if (charging) {
+                text2.text += " charging"
+            }
+
             if(battery > 90.0){
                 image.source = "SVGs/battery.png"
             }else if(battery > 75.0){

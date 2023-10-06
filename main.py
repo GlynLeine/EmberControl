@@ -28,7 +28,7 @@ class MainWindow(QObject):
 
     # UI Signals
     getDegree = Signal(float)
-    getBattery = Signal(float)
+    getBattery = Signal(float, bool)
     getColor = Signal(QColor)
     setColor = Signal(QColor)
     connectionChanged = Signal(bool)
@@ -83,11 +83,9 @@ class MainWindow(QObject):
             self.setColor.emit(col)
     
     # Threads 
-    @asyncio.coroutine
     async def ConnectToMug(self):
         await self.mug.connect()
     
-    @asyncio.coroutine
     async def UpdateUI(self):
         """Coroutine to update the UI
 
@@ -98,15 +96,15 @@ class MainWindow(QObject):
             nothing, it will run unless the routine is killed.
         """
         while True:        
-            if await self.mug.connectedClient.is_connected():
+            if self.mug.connectedClient.is_connected:
                 currentTemp = await self.mug.getCurrentTemp()
-                currentBat = await self.mug.getCurrentBattery()
+                currentBattery, currentlyCharging = await self.mug.getCurrentBattery()
                 ledColor = await self.mug.getCurrentLEDColor()
                 self.currentColor = QColor(ledColor[0], ledColor[1], ledColor[2], ledColor[3])  
                 # UI Signal Calls
                 self.connectionChanged.emit(True)
                 self.getDegree.emit(currentTemp)
-                self.getBattery.emit(currentBat)
+                self.getBattery.emit(currentBattery, currentlyCharging)
                 self.setColor.emit(self.currentColor)
                 await asyncio.sleep(5)
             else:

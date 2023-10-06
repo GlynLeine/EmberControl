@@ -49,7 +49,7 @@ class Mug:
         Returns:
             the target temperature as float.
         """
-        if await self.connectedClient.is_connected():
+        if  self.connectedClient.is_connected:
             currentTargetTemp = await self.connectedClient.read_gatt_char(UUIDS["target_temp"])
             targetDegree = float(int.from_bytes(currentTargetTemp, byteorder = 'little', signed = False)) * 0.01
             print("Target temp set to {0}".format(targetDegree))
@@ -66,11 +66,12 @@ class Mug:
         Returns:
             the current battery level as float.
         """
-        if await self.connectedClient.is_connected():
+        if  self.connectedClient.is_connected:
             curBat = await self.connectedClient.read_gatt_char(UUIDS["current_bat"])
             currentBattery = float(curBat[0])
-            print("Current Bat: {0}".format(currentBattery))
-            return currentBattery
+            currentlyCharging = bool(curBat[1])
+            print("Current Battery: {0}% Status: {1}".format(currentBattery, "Charging" if currentlyCharging else "Not charging"))
+            return currentBattery, currentlyCharging
         else:
             print("not connected")
 
@@ -85,7 +86,7 @@ class Mug:
             the current temperature as float.
         """
         try:
-            if await self.connectedClient.is_connected():
+            if  self.connectedClient.is_connected:
                 currentTemp = await self.connectedClient.read_gatt_char(
                     UUIDS["current_temp"]
                 )
@@ -114,7 +115,7 @@ class Mug:
         Returns:
             no value
         """
-        if await self.connectedClient.is_connected():
+        if  self.connectedClient.is_connected:
             await self.connectedClient.write_gatt_char(UUIDS["led_color"], color, False)
             print("Changed Color to {0}".format(color))
         else:
@@ -129,7 +130,7 @@ class Mug:
         Returns:
             no value
         """
-        if await self.connectedClient.is_connected():
+        if  self.connectedClient.is_connected:
             newtarget = temp.to_bytes(2, 'little')
             await self.connectedClient.write_gatt_char(UUIDS["target_temp"], newtarget, False)
         else:
@@ -150,7 +151,7 @@ class Mug:
                 await scanner.start()
                 await asyncio.sleep(5.0)
                 await scanner.stop()
-                devices = await scanner.get_discovered_devices()
+                devices = scanner.discovered_devices
 
                 for device in devices:
                     if device.name == DEVICE_NAME:
@@ -162,7 +163,7 @@ class Mug:
                         async with BleakClient(device) as client:
                             self.connectedClient = client
                             
-                            x = await client.is_connected()
+                            x =  client.is_connected
                             print("Connected: {0}".format(x))
                             if platform != "darwin":
                                 # Avoid this on mac, since CoreBluetooth doesnt support pairing.
@@ -178,7 +179,7 @@ class Mug:
                                 # the client will also disconnect automatically
                                 print(".")
                                 await asyncio.sleep(2)
-                                self.keepConnectionAlive = await self.connectedClient.is_connected()
+                                self.keepConnectionAlive =  self.connectedClient.is_connected
 
         except Exception as exc:
             # self.connectionChanged.emit(False)
