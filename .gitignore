@@ -7,3 +7,4 @@ pyproject.toml
 venv/*
 
 **/__pycache__
+output/*

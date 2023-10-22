@@ -14,7 +14,7 @@ Button {
         property var dynamicColor: menuBtn.hovered? btnColorMouseOver : btnColorDefault
     }
     width: 35
-    height: 35
+    height: 32
 
     background: buttonBackground
     Rectangle {
@@ -32,7 +32,6 @@ Button {
             antialiasing: false
             fillMode: Image.PreserveAspectFit
         }
-
     }
 }
 
@@ -40,6 +39,6 @@ Button {
 
 /*##^##
 Designer {
-    D{i:0;height:35;width:35}
+    D{i:0;height:32;width:35}
 }
 ##^##*/

@@ -21,9 +21,9 @@ Small python program to communicate with the Ember Mug.
 Tested on Windows 11 with Python 3.10.11
 Currently we are using the following [dependencies](requirements.txt): 
 
-    qasync>=0.13.0
-    bleak>=0.10.0
-    PySide2>=5.15.2
+    qasync==0.25.0
+    bleak==0.21.1
+    PyQt5==5.15.9
     
 Install dependencies:
 

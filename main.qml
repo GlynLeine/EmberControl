@@ -3,24 +3,36 @@ import QtQuick.Window 2.15
 import QtQuick.Controls.Material 2.0
 import QtQuick.Controls 2.15
 import "controls"
+import "mug"
 import QtGraphicalEffects 1.15
 
 Window {
     id: window
-    width: 300
-    height: 400
+    property bool overlayMode: false
+
+    width: (window.overlayMode ? 200 : 300)
+    height: (window.overlayMode ? 66 : 400)
     visible: true
     color: "#00000000"
     title: qsTr("Ember Control")
 
-    flags: Qt.Window | Qt.FramelessWindowHint
+    flags: Qt.Window | Qt.FramelessWindowHint | (window.overlayMode ? Qt.WindowStaysOnTopHint | Qt.WA_TranslucentBackground : 0)
 
-    QtObject{
+    Mug {
+        id: mug
+    }
+
+    QtObject {
         id: internal
-        function showSettings(){
+
+        function showSettings() {
             var component = Qt.createComponent("Settings.qml")
             var win = component.createObject()
             win.show()
+        }
+
+        function toggleOverlayMode() {
+            window.overlayMode = !window.overlayMode
         }
     }
 
@@ -28,72 +40,76 @@ Window {
         id: background
         x: 0
         y: 0
-        width: 300
-        height: 400
-        color: "#ff5858"
-        layer.enabled: true
-        rotation: -360
+        width: parent.width
+        height: parent.height
+        color: (window.overlayMode ? "#00000000" : "#ffff5858")
         z: 1
         gradient: Gradient {
             GradientStop {
-                id: gradientStartColor
+                id: backgroundGradientStart
                 position: 1
                 color: "#ff5858"
             }
 
             GradientStop {
-                id: gradientStopColor
+                id: backgroundGradientStop
                 position: 0
                 color: "#f09819"
             }
         }
 
         PropertyAnimation {
-            id: animationCold2
-            target: gradientStartColor
+            id: backgroundAnimationCold2
+            target: backgroundGradientStart
             property: "color"
             to: "#0E1533"
             duration: 10000
+            running: mug.temperatureType == Mug.TemperatureType.Cold && !window.overlayMode
         }
 
         PropertyAnimation {
-            id: animationCold1
-            target: gradientStopColor
+            id: backgroundAnimationCold1
+            target: backgroundGradientStop
             property: "color"
             to: "#294663"
             duration: 10000
+            running: mug.temperatureType == Mug.TemperatureType.Cold && !window.overlayMode
         }
 
         PropertyAnimation {
-            id: animationwarm2
-            target: gradientStartColor
+            id: backgroundAnimationWarm2
+            target: backgroundGradientStart
             property: "color"
             to: "#873746"
             duration: 10000
+            running: mug.temperatureType == Mug.TemperatureType.Warm && !window.overlayMode
         }
 
         PropertyAnimation {
-            id: animationwarm1
-            target: gradientStopColor
+            id: backgroundAnimationWarm1
+            target: backgroundGradientStop
             property: "color"
             to: "#8D6F3E"
             duration: 10000
+            running: mug.temperatureType == Mug.TemperatureType.Warm && !window.overlayMode
         }
 
         PropertyAnimation {
-            id: animationHot2
-            target: gradientStartColor
+            id: backgroundAnimationHot2
+            target: backgroundGradientStart
             property: "color"
             to: "#ff5858"
             duration: 10000
+            running: mug.temperatureType == Mug.TemperatureType.Hot && !window.overlayMode
         }
 
         PropertyAnimation {
-            id: animationHot1
-            target: gradientStopColor
+            id: backgroundAnimationHot1
+            target: backgroundGradientStop
             property: "color"
             to: "#f09819"
             duration: 10000
+            running: mug.temperatureType == Mug.TemperatureType.Hot && !window.overlayMode
         }
 
 
@@ -119,11 +135,25 @@ Window {
                 id: image
                 x: 3
                 y: 3
-                width: 15
-                height: 15
+                width: 16
+                height: 16
                 horizontalAlignment: Image.AlignRight
-                visible: text2.text !== ""
-                source: "SVGs/battery-80.png"
+                visible: batteryChargeText.text !== ""
+                source: {
+                    var batteryImageSource = "SVGs/battery"
+
+                    const chargePostFix = ["-20", "-50", "-50", "-80", ""];
+
+                    const chargeIndex = Math.ceil(Math.max(0, mug.batteryCharge - 30) / 20)
+
+                    batteryImageSource += chargePostFix[chargeIndex];
+
+                    if (mug.charging) {
+                        batteryImageSource += "-charging"
+                    }
+
+                    return batteryImageSource + ".png"
+                }
                 cache: true
                 autoTransform: false
                 sourceSize.height: 40
@@ -133,11 +163,11 @@ Window {
             }
 
             Text {
-                id: text2
+                id: batteryChargeText
                 x: 20
                 y: 3
                 color: "#ffffff"
-                text: qsTr("")
+                text: (mug.batteryCharge == -1.0 ? "" : String(mug.batteryCharge) + "%")
                 font.pixelSize: 12
                 horizontalAlignment: Text.AlignHCenter
                 styleColor: "#00000000"
@@ -145,9 +175,9 @@ Window {
 
             MenuButton {
                 id: close
+                visible: !window.overlayMode
                 iconSource: "SVGs/close.png"
                 x: 265
-                height: 32
                 anchors.right: parent.right
                 anchors.top: parent.top
                 btnColorMouseOver: "#dd3c3c"
@@ -161,9 +191,8 @@ Window {
 
             MenuButton {
                 id: minimize
+                visible: !window.overlayMode
                 x: 224
-                width: 35
-                height: 32
                 anchors.right: close.left
                 anchors.top: parent.top
                 anchors.topMargin: 0
@@ -171,6 +200,31 @@ Window {
                 anchors.rightMargin: 0
                 btnColorMouseOver: "#5cffffff"
                 onClicked: window.showMinimized()
+            }
+
+            MenuButton {
+                id: enterOverlay
+                visible: !window.overlayMode
+                x: 183
+                anchors.right: minimize.left
+                anchors.top: parent.top
+                anchors.topMargin: 0
+                iconSource: "SVGs/overlay.png"
+                anchors.rightMargin: 0
+                btnColorMouseOver: "#5cffffff"
+                onClicked: internal.toggleOverlayMode()
+            }
+
+            SmallMenuButton {
+                id: exitOverlay
+                visible: window.overlayMode
+                anchors.right: parent.right
+                anchors.top: parent.top
+                anchors.topMargin: 0
+                anchors.rightMargin: 0
+                iconSource: "SVGs/overlay.png"
+                btnColorMouseOver: "#5cffffff"
+                onClicked: internal.toggleOverlayMode()
             }
         }
 
@@ -182,16 +236,16 @@ Window {
             anchors.top: topbar.bottom
             anchors.bottom: parent.bottom
             anchors.rightMargin: 0
-            anchors.bottomMargin: 55
+            anchors.bottomMargin: (window.overlayMode ? 25 : 55)
             anchors.leftMargin: 0
             anchors.topMargin: 0
 
             Text {
-                id: text1
+                id: temperatureText
                 x: 89
                 y: 138
-                color: "#ffffff"
-                text: qsTr("")
+                color: (window.overlayMode ? "#ff5858" : "#ffffff")
+                text: (mug.temperature == -1.0 ? "" : (String(mug.temperature) + "°C"))
                 anchors.verticalCenter: parent.verticalCenter
                 font.pixelSize: 50
                 horizontalAlignment: Text.AlignHCenter
@@ -203,10 +257,85 @@ Window {
                 font.bold: true
             }
 
+            LinearGradient {
+                id: temperatureTextGradient
+                visible: window.overlayMode
+                anchors.fill: temperatureText
+                source: temperatureText
+
+                gradient: Gradient {
+                    GradientStop {
+                        id: temperatureGradientStart
+                        position: 1
+                        color: "#ff5858"
+                    }
+
+                    GradientStop {
+                        id: temperatureGradientStop
+                        position: 0
+                        color: "#f09819"
+                    }
+                }
+
+                PropertyAnimation {
+                    id: temperatureAnimationCold2
+                    target: temperatureGradientStart
+                    property: "color"
+                    to: "#0E1533"
+                    duration: 10000
+                    running: mug.temperatureType == Mug.TemperatureType.Cold && window.overlayMode
+                }
+
+                PropertyAnimation {
+                    id: temperatureAnimationCold1
+                    target: temperatureGradientStop
+                    property: "color"
+                    to: "#294663"
+                    duration: 10000
+                    running: mug.temperatureType == Mug.TemperatureType.Cold && window.overlayMode
+                }
+
+                PropertyAnimation {
+                    id: temperatureAnimationWarm2
+                    target: temperatureGradientStart
+                    property: "color"
+                    to: "#873746"
+                    duration: 10000
+                    running: mug.temperatureType == Mug.TemperatureType.Warm && window.overlayMode
+                }
+
+                PropertyAnimation {
+                    id: temperatureAnimationWarm1
+                    target: temperatureGradientStop
+                    property: "color"
+                    to: "#8D6F3E"
+                    duration: 10000
+                    running: mug.temperatureType == Mug.TemperatureType.Warm && window.overlayMode
+                }
+
+                PropertyAnimation {
+                    id: temperatureAnimationHot2
+                    target: temperatureGradientStart
+                    property: "color"
+                    to: "#ff5858"
+                    duration: 10000
+                    running: mug.temperatureType == Mug.TemperatureType.Hot && window.overlayMode
+                }
+
+                PropertyAnimation {
+                    id: temperatureAnimationHot1
+                    target: temperatureGradientStop
+                    property: "color"
+                    to: "#f09819"
+                    duration: 10000
+                    running: mug.temperatureType == Mug.TemperatureType.Hot && window.overlayMode
+                }
+            }
+
             BusyIndicator {
                 id: busyIndicator
                 anchors.verticalCenter: parent.verticalCenter
-                visible: text1.text == ""
+                visible: temperatureText.text == ""
                 Component.onCompleted: {
                     contentItem.pen = "white"
                     contentItem.fill = "white"
@@ -220,6 +349,7 @@ Window {
 
         Rectangle {
             id: bottombar
+            visible: !window.overlayMode
             height: 40
             color: "#00000000"
             anchors.left: parent.left
@@ -289,8 +419,6 @@ Window {
                         iconSource: "SVGs/thermometer-plus.png"
                         display: AbstractButton.IconOnly
                         onClicked: internal.showSettings()
-
-
                     }
                 }
             }
@@ -326,38 +454,25 @@ Window {
                 coffeeBtn.enabled = false
                 button1.enabled = false
                 button2.enabled = false
+                mug.reset()
             }
         }
 
         function onGetDegree(degree) {
-            text1.text = String(degree) + "°C"
-            if(degree > 53.0){
-                animationHot1.running = true
-                animationHot2.running = true
-            }else if(degree > 40.0){
-                animationwarm1.running = true
-                animationwarm2.running = true
-            }else{
-                animationCold1.running = true
-                animationCold2.running = true
+            mug.temperature = degree
+
+            if (degree > 53.0) {
+                mug.temperatureType = Mug.TemperatureType.Hot
+            } else if(degree > 40.0) {
+                mug.temperatureType = Mug.TemperatureType.Warm
+            } else {
+                mug.temperatureType = Mug.TemperatureType.Cold
             }
         }
 
         function onGetBattery(battery, charging) {
-            text2.text = String(battery) + "%"
-            if (charging) {
-                text2.text += " charging"
-            }
-
-            if(battery > 90.0){
-                image.source = "SVGs/battery.png"
-            }else if(battery > 75.0){
-                image.source = "SVGs/battery-80.png"
-            }else if(battery > 30.0){
-                image.source = "SVGs/battery-50.png"
-            }else{
-                image.source = "SVGs/battery-20.png"
-            }
+            mug.batteryCharge = battery
+            mug.charging = charging
         }
     }
 

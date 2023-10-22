@@ -1,21 +1,22 @@
 # This Python file uses the following encoding: utf-8
-import sys
 import os
+
+import sys
 import asyncio
 from struct import *
 from qasync import QEventLoop
-from PySide2.QtWidgets import QApplication, QColorDialog
-from PySide2.QtGui import QColor
-from PySide2.QtQml import QQmlApplicationEngine
-from PySide2.QtCore import QObject, Slot, Signal, QSettings
+from PyQt5.QtWidgets import QApplication, QColorDialog, QSystemTrayIcon, QAction, QMenu
+from PyQt5.QtGui import QColor, QIcon
+from PyQt5.QtQml import QQmlApplicationEngine
+from PyQt5.QtCore import QObject, pyqtSlot as Slot, pyqtSignal as Signal, QSettings
 from mug.mug import Mug
 import log.logger as log
 
 class MainWindow(QObject):
-    def __init__(self):
+    def __init__(self, systray : QSystemTrayIcon):
         QObject.__init__(self)
         # Settings
-        self.globalSettings = QSettings("Pledi", "EmberControl")
+        self.globalSettings = QSettings("Pledi", "Ember Control")
         # Check for settings
         if self.globalSettings.value("coffeeTemp") is None:
             self.globalSettings.setValue("coffeeTemp", 5500)
@@ -23,6 +24,13 @@ class MainWindow(QObject):
             self.globalSettings.setValue("teaTemp", 5900)
         # Init
         self.mug = Mug(True, self.globalSettings.value("coffeeTemp"),self.globalSettings.value("teaTemp"))
+        self.systray = systray
+        
+        self.trayContext = QMenu()
+        self.exitAction = self.trayContext.addAction("Exit")
+        self.exitAction.triggered.connect(self.close_event)       
+
+        self.systray.setContextMenu(self.trayContext)
 
     # UI Signals
     getDegree = Signal(float)
@@ -99,10 +107,15 @@ class MainWindow(QObject):
             if self.mug.connectedClient.is_connected:
                 log.prevLine()
                 currentTemp = await self.mug.getCurrentTemp()
-                log.nextLine()
+                log.nextLine()                
                 currentBattery, currentlyCharging = await self.mug.getCurrentBattery()
+
+                currentTarget = await self.mug.getTargetTemp()
+
+                self.systray.setToolTip("Current: " + str(currentTemp) + "°C\nTarget: " + str(currentTarget) + "°C\nBattery: " + str(currentBattery) + "%")
+
                 ledColor = await self.mug.getCurrentLEDColor()
-                self.currentColor = QColor(ledColor[0], ledColor[1], ledColor[2], ledColor[3])  
+                self.currentColor = QColor(ledColor[0], ledColor[1], ledColor[2], ledColor[3])
                 # UI Signal Calls
                 self.connectionChanged.emit(True)
                 self.getDegree.emit(currentTemp)
@@ -121,13 +134,24 @@ class MainWindow(QObject):
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
-    engine = QQmlApplicationEngine()
+    # Setup Icons
+    iconPath = os.path.join(os.path.dirname(os.path.realpath(__file__)), "SVGs" + os.path.sep + "icon.ico")
+    icon = QIcon(iconPath)
+
+    trayIcon = QSystemTrayIcon(app)
+    trayIcon.setIcon(icon)
+    trayIcon.setToolTip("Searching...")
+    trayIcon.show()
+
+    app.setWindowIcon(icon)
+
+    engine = QQmlApplicationEngine(app)
     # Event Loop
     loop = QEventLoop(app)
     asyncio.set_event_loop(loop)
 
     # Get Context
-    main = MainWindow()
+    main = MainWindow(trayIcon)
     engine.rootContext().setContextProperty("backend", main)
 
     # Load QML File
@@ -146,4 +170,4 @@ if __name__ == "__main__":
 
     if not engine.rootObjects():
         sys.exit(-1)
-    sys.exit(app.exec_())
+    sys.exit(app.exec())

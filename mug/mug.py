@@ -61,7 +61,6 @@ class Mug:
             if  self.isConnected():
                 currentTargetTemp = await self.connectedClient.read_gatt_char(UUIDS["target_temp"])
                 targetDegree = float(int.from_bytes(currentTargetTemp, byteorder = 'little', signed = False)) * 0.01
-                print("Target temp set to {0}".format(targetDegree))
                 return targetDegree
             else:
                 print("not connected")        
