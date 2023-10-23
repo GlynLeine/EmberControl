@@ -1,7 +1,12 @@
 # EmberControl
-Small python program to communicate with the Ember Mug. 
+Small python program to communicate with the Ember Mug.
+
+<sub>Ember control main view:</sub>
 
 ![Preview EmberControl](preview.png)
+
+<sub>Ember control in overlay mode:</sub>
+
 ![Preview EmberControl in overlay mode](preview_overlay.png)
 
 ## Features
