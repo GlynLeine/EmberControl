@@ -1,9 +1,8 @@
 # EmberControl
 Small python program to communicate with the Ember Mug. 
 
-![Preview EmberControl](preview.gif)
-
-
+![Preview EmberControl](preview.png)
+![Preview EmberControl in overlay mode](preview_overlay.png)
 
 ## Features
 
@@ -18,7 +17,8 @@ Small python program to communicate with the Ember Mug.
 
 ## Installation
 
-Tested on Windows 11 with Python 3.10.11
+Either download a prebuilt .exe from the releases page or build it yourself.
+Building the application has been tested Windows 11 with Python 3.10.11
 Currently we are using the following [dependencies](requirements.txt): 
 
     qasync==0.25.0
@@ -33,6 +33,7 @@ Run the UI with:
 
     python main.py
 
+Or build your own .exe using auto-py-to-exe.
 
 ## Settings
 Current Settings: 
@@ -43,7 +44,3 @@ Current Settings:
 - [ ] Temperature Unit
 
 ![Preview EmberControl](settings.png)
-
-    
-
-
